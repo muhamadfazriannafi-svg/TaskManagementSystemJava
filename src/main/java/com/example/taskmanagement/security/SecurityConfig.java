@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/favicon.ico", "/assets/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register").hasRole(ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users").hasAnyRole(ADMIN, MANAGER)
                         .requestMatchers(HttpMethod.GET, "/api/v1/tasks").hasAnyRole(ADMIN, MANAGER, STAFF)
                         .requestMatchers(HttpMethod.POST, "/api/v1/tasks").hasAnyRole(ADMIN, MANAGER)
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/tasks/*/status").hasAnyRole(STAFF, MANAGER, ADMIN)

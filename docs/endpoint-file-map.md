@@ -180,6 +180,7 @@ Semua jalur di bawah `src/main/java/com/example/taskmanagement/`.
 | POST `/auth/register` | `AuthController` | `AuthService` | `UserRepository`, `RoleRepository` | `RegisterRequest` |
 | GET `/auth/me` | `AuthController` | — | — | `UserResponse` |
 | GET `/tasks` | `TaskController` | `TaskService` | `TaskRepository` | `TaskResponse` |
+| GET `/users` | `UserController` | `UserService` | `UserRepository` | `UserSummary` |
 | POST `/tasks` | `TaskController` | `TaskService` | `TaskRepository`, `UserRepository` | `CreateTaskRequest`, `TaskResponse` |
 | PATCH `/tasks/{id}/status` | `TaskController` | `TaskService` | `TaskRepository` | `UpdateTaskStatusRequest`, `TaskResponse` |
 | PUT `/tasks/{id}` | `TaskController` | `TaskService` | `TaskRepository` | `UpdateTaskRequest`, `TaskResponse` |

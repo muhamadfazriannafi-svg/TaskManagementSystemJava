@@ -17,6 +17,8 @@ Satu halaman, tanpa build step, tanpa framework. Disajikan Spring Boot sebagai a
 
 Tidak ada routing/halaman terpisah: satu tabel yang isinya menyesuaikan role.
 
+Pemilih assignee berupa **combo box** (`<select>`) yang diisi dari `GET /api/v1/users` (`username · ROLE`), dimuat bersamaan dengan daftar tugas. Kolom "Ditugaskan" juga menampilkan username, bukan id.
+
 ## Matriks UI vs Role
 
 | Elemen | ADMIN | MANAGER | STAFF |
@@ -37,7 +39,7 @@ Isi daftar mengikuti `GET /tasks` (staff otomatis hanya melihat tugasnya). Aksi 
 
 ## Batasan yang disengaja
 
-- **Assignee diisi ID angka**, karena PRD tidak punya endpoint daftar pengguna. Kalau nanti ada banyak user, tambahkan `GET /api/v1/users` (ADMIN/MANAGER) lalu ganti `<input type=number>` menjadi `<select>`.
+- Combo assignee memakai `GET /api/v1/users` (ADMIN/MANAGER) dan menampilkan **semua** pengguna, belum difilter ke `ROLE_STAFF` saja.
 - Tanpa pagination/filter/pencarian — baru perlu bila tugas melewati ±50 baris.
 - Tanpa dark mode, i18n, atau design system.
 - Tanpa optimistic update: setiap perubahan memuat ulang daftar agar status selalu sesuai server.

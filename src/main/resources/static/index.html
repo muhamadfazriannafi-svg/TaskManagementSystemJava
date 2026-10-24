@@ -77,8 +77,8 @@
     <h3 style="margin:0" id="taskDlgTitle">Tugas baru</h3>
     <label>Judul<input id="tTitle" required maxlength="200"></label>
     <label>Deskripsi<textarea id="tDesc" maxlength="5000"></textarea></label>
-    <label id="assigneeWrap">ID assignee<input id="tAssignee" type="number" min="1" required
-      placeholder="mis. 2"></label>
+    <label id="assigneeWrap">Ditugaskan ke<select id="tAssignee" required
+      style="width:100%"></select></label>
     <div class="row" style="justify-content:flex-end;margin-top:16px">
       <button type="button" id="taskCancel">Batal</button>
       <button class="primary" id="taskSave">Simpan</button>
@@ -115,6 +115,7 @@ const store = {
 
 let me = null;          // {id, username, roles}
 let tasks = [];
+let users = [];
 let editing = null;     // task being edited, or null for create
 
 async function api(path, opts = {}) {
@@ -163,7 +164,7 @@ function render() {
         ? `<select data-id="${t.id}" class="statusSel">${["TODO", "IN_PROGRESS", "DONE"].map(
             (s) => `<option ${s === t.status ? "selected" : ""}>${s}</option>`).join("")}</select>`
         : `<span class="badge ${t.status}">${t.status}</span>`}</td>
-      <td>${t.assignedToId === null ? '<span class="muted">—</span>' : (t.assignedToId === me.id ? "Saya" : "#" + t.assignedToId)}</td>
+      <td>${t.assignedToId === null ? '<span class="muted">—</span>' : esc(users.find((u) => u.id === t.assignedToId)?.username ?? "#" + t.assignedToId)}</td>
       <td style="white-space:nowrap">
         ${canEdit ? `<button class="link" data-edit="${t.id}">Ubah</button>` : ""}
         ${canDelete ? `<button class="link" data-del="${t.id}" style="color:#b42318">Hapus</button>` : ""}
@@ -181,13 +182,16 @@ async function loadMe() {
 
 async function loadTasks() {
   $("count").textContent = "Memuat…";
-  tasks = await api("/tasks");
+  [tasks] = await Promise.all([api("/tasks"), loadUsers()]);
   render();
 }
 
 async function loadUsers() {
-  // No user-list endpoint in the PRD: admins type the assignee id.
-  users = [];
+  users = canWrite() ? await api("/users") : [];
+  const options = users.map((u) =>
+    `<option value="${u.id}">${esc(u.username)} · ${u.roles.join(", ").replaceAll("ROLE_", "")}</option>`
+  ).join("");
+  $("tAssignee").innerHTML = options || '<option value="">(tidak ada pengguna)</option>';
 }
 function logout() {
   store.token = null;
@@ -255,6 +259,7 @@ $("newBtn").addEventListener("click", () => {
   $("taskForm").reset();
   $("assigneeWrap").classList.remove("hidden");
   $("taskErr").textContent = "";
+  loadUsers().catch((err) => { $("taskErr").textContent = err.message; });
   $("taskDlg").showModal();
 });
 
