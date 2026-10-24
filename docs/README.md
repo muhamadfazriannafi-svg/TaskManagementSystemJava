@@ -14,9 +14,7 @@ Dokumen ini dipecah per fase. Setiap fase punya file sendiri di `docs/`.
 
 Referensi silang: [endpoint-file-map.md](endpoint-file-map.md) — endpoint mana menyentuh file mana.
 
-## Status Akhir
-
-Seluruh milestone PRD selesai. `mvn test` → **16 test, 0 gagal**.
+Seluruh milestone PRD selesai. `mvn test` → **17 test, 0 gagal**.
 
 | Test | Cakupan |
 | --- | --- |
@@ -24,7 +22,11 @@ Seluruh milestone PRD selesai. `mvn test` → **16 test, 0 gagal**.
 | `AuthFlowTest` | login, `/me`, 401 token, register hanya ADMIN |
 | `TaskApiTest` | CRUD + filter role + 403/404/400 (FR-2.1…2.4) |
 | `ErrorEnvelopeTest` | bentuk `ApiError` untuk 400/401/403/404 |
-| `OpenApiTest` | `/v3/api-docs` + Swagger UI |
+| `OpenApiTest` | `/v3/api-docs` + Swagger UI + UI bawaan |
+
+### UI Web
+
+`http://localhost:8080/` — halaman tunggal (`src/main/resources/static/index.html`), tanpa build step, tanpa framework. Lihat [ui.md](ui.md).
 
 ### Swagger
 

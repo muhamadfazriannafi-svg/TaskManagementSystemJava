@@ -1,6 +1,8 @@
 package com.example.taskmanagement;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,5 +38,12 @@ class OpenApiTest {
     @Test
     void swaggerUiIsServed() throws Exception {
         mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+    }
+
+    @Test
+    void bundledUiIsServed() throws Exception {
+        mvc.perform(get("/index.html"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Task Management")));
     }
 }

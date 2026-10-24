@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Management</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;--txt:#1c2128;--muted:#6b7280;--accent:#2563eb}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--txt)}
+  header{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line)}
+  header b{flex:1}
+  main{max-width:960px;margin:20px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input,select,button,textarea{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  textarea{width:100%;min-height:70px}
+  button{cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.link{border:0;background:none;color:var(--accent);padding:0}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+  .TODO{background:#eef1f4;color:#4b5563}
+  .IN_PROGRESS{background:#e0ecff;color:#1d4ed8}
+  .DONE{background:#e3f7ea;color:#15803d}
+  #login{max-width:340px;margin:12vh auto}
+  #login input{width:100%;margin-bottom:8px}
+  .err{color:#b42318;margin-top:8px}
+  .muted{color:var(--muted)}
+  dialog{border:1px solid var(--line);border-radius:8px;padding:16px;width:min(460px,92vw)}
+  dialog::backdrop{background:#0006}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  label select,label input,label textarea{width:100%}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header id="topbar" class="hidden">
+  <b>Task Management</b>
+  <span class="muted" id="who"></span>
+  <button id="registerBtn" class="hidden">+ User</button>
+  <button id="newBtn" class="hidden">+ Tugas</button>
+  <button id="logoutBtn">Keluar</button>
+</header>
+
+<section id="login" class="card hidden">
+  <h3 style="margin:0 0 12px">Masuk</h3>
+  <form id="loginForm">
+    <input id="loginUser" placeholder="username" autocomplete="username" required>
+    <input id="loginPass" type="password" placeholder="password" autocomplete="current-password" required>
+    <button class="primary" style="width:100%">Masuk</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<main id="app" class="hidden">
+  <div class="row" style="margin-bottom:12px">
+    <span class="muted" id="count">Memuat…</span>
+    <span style="flex:1"></span>
+    <button id="refreshBtn">Muat ulang</button>
+  </div>
+  <div class="card" style="padding:4px 12px">
+    <table>
+      <thead><tr><th>Judul</th><th>Deskripsi</th><th>Status</th><th>Ditugaskan</th><th></th></tr></thead>
+      <tbody id="taskRows"></tbody>
+    </table>
+    <p id="empty" class="muted hidden" style="padding:12px 0">Belum ada tugas.</p>
+  </div>
+</main>
+
+<dialog id="taskDlg">
+  <form id="taskForm">
+    <h3 style="margin:0" id="taskDlgTitle">Tugas baru</h3>
+    <label>Judul<input id="tTitle" required maxlength="200"></label>
+    <label>Deskripsi<textarea id="tDesc" maxlength="5000"></textarea></label>
+    <label id="assigneeWrap">ID assignee<input id="tAssignee" type="number" min="1" required
+      placeholder="mis. 2"></label>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button type="button" id="taskCancel">Batal</button>
+      <button class="primary" id="taskSave">Simpan</button>
+    </div>
+    <div class="err" id="taskErr"></div>
+  </form>
+</dialog>
+
+<dialog id="regDlg">
+  <form id="regForm">
+    <h3 style="margin:0">Pengguna baru</h3>
+    <label>Username<input id="rUser" required minlength="3" maxlength="50"></label>
+    <label>Email<input id="rEmail" type="email" required maxlength="100"></label>
+    <label>Password<input id="rPass" type="password" required minlength="8" maxlength="72"></label>
+    <label>Role<select id="rRole">
+      <option>ROLE_STAFF</option><option>ROLE_MANAGER</option><option>ROLE_ADMIN</option>
+    </select></label>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button type="button" id="regCancel">Batal</button>
+      <button class="primary" id="regSave">Simpan</button>
+    </div>
+    <div class="err" id="regErr"></div>
+  </form>
+</dialog>
+
+<script>
+// Lazy: no build step, no framework. One file, 7 endpoints.
+const API = "/api/v1";
+const $ = (id) => document.getElementById(id);
+const store = {
+  get token() { return sessionStorage.getItem("token"); },
+  set token(v) { v ? sessionStorage.setItem("token", v) : sessionStorage.removeItem("token"); },
+};
+
+let me = null;          // {id, username, roles}
+let tasks = [];
+let editing = null;     // task being edited, or null for create
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      ...(store.token ? { Authorization: "Bearer " + store.token } : {}),
+      ...(opts.headers || {}),
+    },
+  });
+  if (res.status === 401) { logout(); throw new Error("Sesi berakhir, silakan masuk lagi."); }
+  if (res.status === 204) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || body.error || ("HTTP " + res.status));
+  return body;
+}
+
+const has = (role) => me?.roles.includes(role);
+const isStaff = () => has("ROLE_STAFF");
+const canWrite = () => has("ROLE_ADMIN") || has("ROLE_MANAGER");
+
+function show(view) {
+  $("login").classList.toggle("hidden", view !== "login");
+  $("app").classList.toggle("hidden", view !== "app");
+  $("topbar").classList.toggle("hidden", view === "login");
+}
+
+function render() {
+  show("app");
+  $("who").textContent = `${me.username} · ${me.roles.join(", ").replaceAll("ROLE_", "")}`;
+  $("newBtn").classList.toggle("hidden", !canWrite());
+  $("registerBtn").classList.toggle("hidden", !has("ROLE_ADMIN"));
+
+  $("count").textContent = `${tasks.length} tugas`;
+  $("empty").classList.toggle("hidden", tasks.length > 0);
+  $("taskRows").innerHTML = tasks.map((t) => {
+    const mine = t.assignedToId === me.id;
+    const canStatus = canWrite() || (isStaff() && mine);
+    const canEdit = canWrite();
+    const canDelete = has("ROLE_ADMIN");
+    return `<tr>
+      <td><b>${esc(t.title)}</b></td>
+      <td class="muted">${esc(t.description || "—")}</td>
+      <td>${canStatus
+        ? `<select data-id="${t.id}" class="statusSel">${["TODO", "IN_PROGRESS", "DONE"].map(
+            (s) => `<option ${s === t.status ? "selected" : ""}>${s}</option>`).join("")}</select>`
+        : `<span class="badge ${t.status}">${t.status}</span>`}</td>
+      <td>${t.assignedToId === null ? '<span class="muted">—</span>' : (t.assignedToId === me.id ? "Saya" : "#" + t.assignedToId)}</td>
+      <td style="white-space:nowrap">
+        ${canEdit ? `<button class="link" data-edit="${t.id}">Ubah</button>` : ""}
+        ${canDelete ? `<button class="link" data-del="${t.id}" style="color:#b42318">Hapus</button>` : ""}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function loadMe() {
+  me = await api("/auth/me");
+}
+
+async function loadTasks() {
+  $("count").textContent = "Memuat…";
+  tasks = await api("/tasks");
+  render();
+}
+
+async function loadUsers() {
+  // No user-list endpoint in the PRD: admins type the assignee id.
+  users = [];
+}
+function logout() {
+  store.token = null;
+  me = null;
+  tasks = [];
+  show("login");
+}
+
+// ---------- auth ----------
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  try {
+    const body = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username: $("loginUser").value, password: $("loginPass").value }),
+    });
+    store.token = body.accessToken;
+    $("loginPass").value = "";
+    await loadMe();
+    await loadTasks();
+  } catch (err) {
+    $("loginErr").textContent = err.message;
+  }
+});
+
+$("logoutBtn").addEventListener("click", logout);
+$("refreshBtn").addEventListener("click", () => loadTasks().catch((e) => alert(e.message)));
+
+// ---------- tasks ----------
+$("taskRows").addEventListener("change", async (e) => {
+  if (!e.target.classList.contains("statusSel")) return;
+  const id = e.target.dataset.id;
+  e.target.disabled = true;
+  try {
+    await api(`/tasks/${id}/status`, { method: "PATCH", body: JSON.stringify({ status: e.target.value }) });
+    await loadTasks();
+  } catch (err) {
+    alert(err.message);
+    await loadTasks();
+  }
+});
+
+$("taskRows").addEventListener("click", async (e) => {
+  const del = e.target.dataset.del;
+  const edit = e.target.dataset.edit;
+  if (del) {
+    if (!confirm("Hapus tugas ini?")) return;
+    try { await api(`/tasks/${del}`, { method: "DELETE" }); await loadTasks(); }
+    catch (err) { alert(err.message); }
+  } else if (edit) {
+    editing = tasks.find((t) => String(t.id) === edit);
+    $("taskDlgTitle").textContent = "Ubah tugas";
+    $("tTitle").value = editing.title;
+    $("tDesc").value = editing.description || "";
+    $("assigneeWrap").classList.add("hidden");
+    $("taskErr").textContent = "";
+    $("taskDlg").showModal();
+  }
+});
+
+$("newBtn").addEventListener("click", () => {
+  editing = null;
+  $("taskDlgTitle").textContent = "Tugas baru";
+  $("taskForm").reset();
+  $("assigneeWrap").classList.remove("hidden");
+  $("taskErr").textContent = "";
+  $("taskDlg").showModal();
+});
+
+$("taskCancel").addEventListener("click", () => $("taskDlg").close());
+
+$("taskSave").addEventListener("click", async (e) => {
+  e.preventDefault();
+  $("taskErr").textContent = "";
+  try {
+    if (editing) {
+      await api(`/tasks/${editing.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ title: $("tTitle").value, description: $("tDesc").value }),
+      });
+    } else {
+      await api("/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: $("tTitle").value,
+          description: $("tDesc").value,
+          assignedToId: Number($("tAssignee").value),
+        }),
+      });
+    }
+    $("taskDlg").close();
+    await loadTasks();
+  } catch (err) {
+    $("taskErr").textContent = err.message;
+  }
+});
+
+// ---------- register ----------
+$("registerBtn").addEventListener("click", () => {
+  $("regForm").reset();
+  $("regErr").textContent = "";
+  $("regDlg").showModal();
+});
+
+$("regCancel").addEventListener("click", () => $("regDlg").close());
+
+$("regSave").addEventListener("click", async (e) => {
+  e.preventDefault();
+  $("regErr").textContent = "";
+  try {
+    await api("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        username: $("rUser").value,
+        email: $("rEmail").value,
+        password: $("rPass").value,
+        role: $("rRole").value,
+      }),
+    });
+    $("regDlg").close();
+    alert("Pengguna dibuat.");
+  } catch (err) {
+    $("regErr").textContent = err.message;
+  }
+});
+
+// ---------- boot ----------
+(async () => {
+  if (!store.token) return show("login");
+  try {
+    await loadMe();
+    await loadTasks();
+  } catch {
+    show("login");
+  }
+})();
+</script>
+</body>
+</html>
